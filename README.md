@@ -300,13 +300,6 @@ require('tfapply').setup({
 })
 ```
 
-### "No Terraform resource found under cursor"
-
-Make sure:
-- You're in a `.tf` file
-- Your cursor is inside a `resource`, `data`, or `module` block
-- The resource declaration follows standard HCL syntax
-
 ### Plugin not loading
 
 Run `:checkhealth tfapply` to diagnose issues.
@@ -329,9 +322,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 MIT License - see LICENSE file for details
-
-## Acknowledgments
-
-- Inspired by the need for faster Terraform workflows
-- Built following Neovim plugin best practices from blink.cmp
-# tfapply.nvim

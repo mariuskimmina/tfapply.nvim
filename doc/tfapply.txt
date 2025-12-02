@@ -1,0 +1,197 @@
+*tfapply.txt*  Terraform apply for Neovim
+
+==============================================================================
+Table of Contents                                    *tfapply-toc*
+
+1. Introduction ............................ |tfapply-introduction|
+2. Requirements ............................ |tfapply-requirements|
+3. Installation ............................ |tfapply-installation|
+4. Configuration ........................... |tfapply-configuration|
+5. Commands ................................ |tfapply-commands|
+6. Lua API ................................. |tfapply-api|
+7. License ................................. |tfapply-license|
+
+==============================================================================
+1. INTRODUCTION                                      *tfapply-introduction*
+
+tfapply.nvim is a Neovim plugin that makes running Terraform apply easier
+and more efficient by providing targeted resource apply functionality
+directly from your editor.
+
+Features:
+  • Full Terraform Apply - Run terraform apply in a floating terminal
+  • Targeted Apply on Hover - Apply only the resource under cursor
+  • File-Level Apply - Apply all resources in the current file
+  • Floating Terminal - Clean, customizable floating window
+  • Smart Resource Detection - Detects resources, data sources, and modules
+  • Configurable - Customize window size, borders, and more
+
+==============================================================================
+2. REQUIREMENTS                                      *tfapply-requirements*
+
+  • Neovim >= 0.10
+  • Terraform CLI installed and available in PATH
+
+==============================================================================
+3. INSTALLATION                                      *tfapply-installation*
+
+Using lazy.nvim:
+>lua
+    {
+      'marius/tfapply.nvim',
+      config = function()
+        require('tfapply').setup()
+      end,
+    }
+<
+
+Using packer.nvim:
+>lua
+    use {
+      'marius/tfapply.nvim',
+      config = function()
+        require('tfapply').setup()
+      end
+    }
+<
+
+==============================================================================
+4. CONFIGURATION                                     *tfapply-configuration*
+
+Default configuration:
+>lua
+    require('tfapply').setup({
+      terminal = {
+        width = 0.8,
+        height = 0.8,
+        border = 'rounded',
+        auto_close = false,
+        auto_close_delay = 2000,
+      },
+      terraform = {
+        bin = 'terraform',
+        cwd = nil,
+        apply_args = {},
+        env = nil,
+      },
+      parser = {
+        resource_types = {
+          'resource',
+          'data',
+          'module',
+        },
+      },
+    })
+<
+
+Configuration Options:
+
+terminal.width                                  *tfapply-config-terminal-width*
+    Window width as fraction of editor width (0.0 to 1.0)
+    Default: 0.8
+
+terminal.height                                *tfapply-config-terminal-height*
+    Window height as fraction of editor height (0.0 to 1.0)
+    Default: 0.8
+
+terminal.border                                *tfapply-config-terminal-border*
+    Border style: 'single', 'double', 'rounded', 'solid', 'shadow'
+    Default: 'rounded'
+
+terminal.auto_close                        *tfapply-config-terminal-auto-close*
+    Automatically close terminal on successful apply
+    Default: false
+
+terminal.auto_close_delay              *tfapply-config-terminal-auto-close-delay*
+    Delay before auto-closing (milliseconds)
+    Default: 2000
+
+terminal.scrollback                        *tfapply-config-terminal-scrollback*
+    Number of lines to keep in scrollback buffer
+    Default: 100000
+
+terminal.show_hints                        *tfapply-config-terminal-show-hints*
+    Show helpful keybinding hints at the top of the terminal
+    Default: true
+
+terraform.bin                                    *tfapply-config-terraform-bin*
+    Terraform binary path
+    Default: 'terraform'
+
+terraform.cwd                                    *tfapply-config-terraform-cwd*
+    Working directory for terraform commands (nil uses current file's dir)
+    Default: nil
+
+terraform.apply_args                        *tfapply-config-terraform-apply-args*
+    Additional terraform apply arguments (table)
+    Default: {}
+
+terraform.env                                    *tfapply-config-terraform-env*
+    Environment variables for terraform process (nil inherits from Neovim)
+    Set credentials and TF_VAR_* variables here
+    Example: { AWS_PROFILE = 'dev', TF_VAR_region = 'us-west-2' }
+    Default: nil
+
+==============================================================================
+5. COMMANDS                                          *tfapply-commands*
+
+:TfApply                                                         *:TfApply*
+    Run full terraform apply in a floating terminal window.
+
+:TfApplyHover                                               *:TfApplyHover*
+    Apply only the resource under the cursor. Automatically detects the
+    resource block and runs targeted apply.
+
+:TfApplyFile                                                 *:TfApplyFile*
+    Apply all resources in the current file using targeted apply.
+
+:TfApplyClose                                               *:TfApplyClose*
+    Close the terraform terminal window if it's open.
+
+==============================================================================
+6. TERMINAL KEYBINDINGS                                  *tfapply-keybindings*
+
+When the terraform terminal is open, these keybindings are available:
+
+Terminal Mode (default):
+  <C-n>             Enter normal mode for scrolling and reading
+  <C-q>             Quick close the terminal window
+
+Normal Mode (for scrolling/reading):
+  q or <ESC>        Close the terminal window
+  <C-d> / <C-u>     Scroll down/up half page (centered)
+  <C-f> / <C-b>     Scroll down/up full page (centered)
+  G / gg            Jump to bottom/top of output
+  i, a, A           Return to terminal mode at bottom
+  Mouse scroll      Scroll up/down through output
+
+The terminal starts in Terminal Mode. Use <C-n> to enter Normal Mode when
+you need to scroll back through terraform output or copy text.
+
+==============================================================================
+7. LUA API                                               *tfapply-api*
+
+require('tfapply').setup({opts})                      *tfapply.setup()*
+    Setup the plugin with optional configuration.
+
+    Parameters:
+      {opts} (table|nil) Optional configuration table
+
+require('tfapply').apply()                            *tfapply.apply()*
+    Run full terraform apply.
+
+require('tfapply').apply_hover()                      *tfapply.apply_hover()*
+    Run targeted terraform apply on resource under cursor.
+
+require('tfapply').apply_file()                       *tfapply.apply_file()*
+    Run targeted terraform apply on all resources in current file.
+
+require('tfapply').close_terminal()                   *tfapply.close_terminal()*
+    Close the terraform terminal window.
+
+==============================================================================
+8. LICENSE                                               *tfapply-license*
+
+MIT License
+
+ vim:tw=78:ts=8:ft=help:norl:
