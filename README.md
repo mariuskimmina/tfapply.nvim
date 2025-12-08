@@ -1,5 +1,8 @@
 # tfapply.nvim
 
+> [!WARNING]
+> This is still early in development and not meant to be used in production, yet.
+
 A Neovim plugin that makes running Terraform apply easier and more efficient by providing targeted resource apply functionality directly from your editor.
 
 ## Features
