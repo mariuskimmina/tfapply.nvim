@@ -1,11 +1,14 @@
 --- Floating terminal implementation for running terraform commands
 
 local M = {}
+local buffer_monitor = require('tfapply.buffer_monitor')
+local interactive = require('tfapply.interactive')
 
 -- Store active terminal info
 local active_terminal = {
   buf = nil,
   win = nil,
+  process = nil,
 }
 
 --- Create a centered floating window
@@ -58,6 +61,44 @@ local function create_floating_window(width_fraction, height_fraction, border)
   -- Store terminal info
   active_terminal.buf = bufnr
   active_terminal.win = winid
+
+  return bufnr, winid
+end
+
+--- Create an output window for streaming terraform results
+--- @return number bufnr Buffer number
+--- @return number winid Window ID
+function M.create_output_window()
+  local config = require('tfapply.config')
+
+  -- Create floating window
+  local bufnr, winid = create_floating_window(
+    config.terminal.width,
+    config.terminal.height,
+    config.terminal.border
+  )
+
+  -- Store terminal info
+  active_terminal.buf = bufnr
+  active_terminal.win = winid
+
+  -- Set up keymaps for output window
+  local opts = { buffer = bufnr, silent = true, noremap = true }
+
+  vim.keymap.set('n', 'q', function()
+    vim.api.nvim_win_close(winid, true)
+  end, opts)
+
+  vim.keymap.set('n', '<Esc>', function()
+    vim.api.nvim_win_close(winid, true)
+  end, opts)
+
+  -- Scrolling
+  vim.keymap.set('n', '<C-d>', '<C-d>zz', opts)
+  vim.keymap.set('n', '<C-u>', '<C-u>zz', opts)
+
+  -- Enable modifiable for line insertion
+  vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
 
   return bufnr, winid
 end
@@ -118,9 +159,125 @@ function M.close()
   active_terminal.win = nil
 end
 
---- Run terraform apply in a floating terminal
+--- Run terraform apply with interactive mode (using termopen with buffer monitoring)
 --- @param targets string[]|nil Optional target resources
-function M.run_apply(targets)
+local function run_apply_interactive(targets)
+  local config = require('tfapply.config')
+
+  -- Validate configuration
+  local valid, err = config.validate()
+  if not valid then
+    vim.notify('tfapply.nvim: ' .. err, vim.log.levels.ERROR)
+    return
+  end
+
+  -- Build command
+  local cmd = build_terraform_command(targets)
+  local cwd = get_working_directory()
+
+  -- Show command being executed
+  local cmd_str = table.concat(cmd, ' ')
+  vim.notify(string.format('Running: %s\nIn: %s', cmd_str, cwd), vim.log.levels.INFO)
+
+  -- Create floating window
+  local bufnr, winid = create_floating_window(
+    config.terminal.width,
+    config.terminal.height,
+    config.terminal.border
+  )
+
+  -- Store terminal info
+  active_terminal.buf = bufnr
+  active_terminal.win = winid
+
+  -- Build job options
+  local job_opts = {
+    cwd = cwd,
+    on_exit = function(job_id, exit_code, event)
+      -- This will be handled by the buffer monitor
+    end,
+  }
+
+  -- Add environment variables if configured
+  if config.terraform.env then
+    job_opts.env = vim.tbl_extend('force', vim.fn.environ(), config.terraform.env)
+  end
+
+  -- Start terminal job
+  local job_id = vim.fn.termopen(cmd, job_opts)
+
+  if job_id <= 0 then
+    vim.notify('Failed to start terraform process', vim.log.levels.ERROR)
+    return
+  end
+
+  -- Start monitoring the buffer for approval prompt
+  local monitor = buffer_monitor.start(bufnr, job_id, {
+    on_prompt = function(output_lines, job_id)
+      -- Approval prompt detected!
+      -- Don't close the window yet - just hide it by switching to a different buffer
+      -- This keeps the terminal job alive so we can send input to it
+
+      -- Start interactive review with a process wrapper
+      local process_wrapper = {
+        output_buffer = output_lines,
+        job_id = job_id,
+        bufnr = bufnr,
+        winid = winid, -- Pass the window ID so we can manage it
+      }
+
+      interactive.start_review(output_lines, process_wrapper)
+    end,
+    on_exit = function(exit_code)
+      if exit_code == 0 then
+        vim.notify('Terraform apply completed successfully', vim.log.levels.INFO)
+
+        -- Auto-close if configured
+        if config.terminal.auto_close and vim.api.nvim_win_is_valid(winid) then
+          vim.defer_fn(function()
+            if vim.api.nvim_win_is_valid(winid) then
+              vim.api.nvim_win_close(winid, true)
+            end
+          end, config.terminal.auto_close_delay)
+        end
+      else
+        vim.notify(
+          string.format('Terraform apply failed with exit code %d', exit_code),
+          vim.log.levels.ERROR
+        )
+      end
+    end,
+  })
+
+  -- Set up keymaps for the terminal
+  local opts = { buffer = bufnr, silent = true, noremap = true }
+
+  -- Terminal mode: Easy escape to normal mode
+  vim.keymap.set('t', '<C-\\><C-n>', '<C-\\><C-n>', opts)
+  vim.keymap.set('t', '<C-n>', '<C-\\><C-n>', opts)
+
+  -- Normal mode: Close with q or ESC (but only if prompt hasn't been detected)
+  vim.keymap.set('n', 'q', function()
+    if not monitor.prompt_detected then
+      buffer_monitor.stop(monitor)
+      vim.api.nvim_win_close(winid, true)
+    end
+  end, opts)
+
+  vim.keymap.set('n', '<Esc>', function()
+    if not monitor.prompt_detected then
+      buffer_monitor.stop(monitor)
+      vim.api.nvim_win_close(winid, true)
+    end
+  end, opts)
+
+  -- Start in insert mode (terminal mode)
+  vim.cmd('startinsert')
+end
+
+--- Run terraform apply in a floating terminal (legacy non-interactive mode)
+--- @param targets string[]|nil Optional target resources
+local function run_apply_legacy(targets)
   local config = require('tfapply.config')
 
   -- Validate configuration
@@ -234,6 +391,18 @@ function M.run_apply(targets)
 
   -- Start in insert mode (terminal mode)
   vim.cmd('startinsert')
+end
+
+--- Run terraform apply (chooses interactive or legacy mode based on config)
+--- @param targets string[]|nil Optional target resources
+function M.run_apply(targets)
+  local config = require('tfapply.config')
+
+  if config.interactive.enabled then
+    run_apply_interactive(targets)
+  else
+    run_apply_legacy(targets)
+  end
 end
 
 return M

@@ -40,6 +40,22 @@ local M = {
       'module',
     },
   },
+
+  -- Interactive apply mode configuration
+  interactive = {
+    -- Enable interactive plan review mode
+    enabled = true,
+    -- Require all resource blocks to be reviewed before approving
+    require_review_all = true,
+    -- Auto-collapse blocks when marked as reviewed
+    auto_collapse_reviewed = true,
+    -- Show unchanged attributes in resource blocks
+    show_unchanged = false,
+    -- Auto-expand all blocks on initial display
+    auto_expand_all = false,
+    -- Highlight reviewed items differently
+    dim_reviewed = true,
+  },
 }
 
 --- Merge user configuration with defaults
@@ -48,6 +64,7 @@ function M.merge_with(opts)
   M.terminal = vim.tbl_deep_extend('force', M.terminal, opts.terminal or {})
   M.terraform = vim.tbl_deep_extend('force', M.terraform, opts.terraform or {})
   M.parser = vim.tbl_deep_extend('force', M.parser, opts.parser or {})
+  M.interactive = vim.tbl_deep_extend('force', M.interactive, opts.interactive or {})
 end
 
 --- Validate configuration

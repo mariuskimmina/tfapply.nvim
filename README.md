@@ -1,15 +1,16 @@
 # tfapply.nvim
 
 > [!WARNING]
-> This is still early in development and not meant to be used in production, yet.
+> Early development - not production ready
 
-A Neovim plugin that makes running Terraform apply easier and more efficient by providing targeted resource apply functionality directly from your editor.
+A Neovim plugin for running Terraform apply commands with an interactive plan review interface.
 
 ## Features
 
-- Full Terraform Apply - Run `terraform apply` in a floating terminal window
-- Targeted Apply on Hover - Apply only the resource under your cursor
-- File-Level Apply - Apply all resources in the current file
+- Interactive plan review with approval workflow
+- Targeted apply for specific resources or files
+- Maintains Terraform state lock during review
+- Terminal-based execution with real TTY support
 
 ## Requirements
 
@@ -87,45 +88,77 @@ require('tfapply').setup({
       'module',
     },
   },
-})
-```
 
-### Example Configurations
-
-#### Auto-close on success
-
-```lua
-require('tfapply').setup({
-  terminal = {
-    auto_close = true,
-    auto_close_delay = 3000, -- 3 seconds
+  -- Interactive apply mode configuration
+  interactive = {
+    -- Enable interactive plan review mode
+    enabled = true,
+    -- Require all resource blocks to be reviewed before approving
+    require_review_all = true,
+    -- Auto-collapse blocks when marked as reviewed
+    auto_collapse_reviewed = true,
+    -- Show unchanged attributes in resource blocks
+    show_unchanged = false,
+    -- Auto-expand all blocks on initial display
+    auto_expand_all = false,
+    -- Highlight reviewed items differently
+    dim_reviewed = true,
   },
 })
 ```
 
-#### Custom terraform binary or working directory
+### Common Configurations
 
+Auto-close terminal on success:
 ```lua
 require('tfapply').setup({
-  terraform = {
-    bin = '/usr/local/bin/terraform',
-    cwd = '/path/to/terraform/project',
-  },
+  terminal = { auto_close = true, auto_close_delay = 3000 },
 })
 ```
 
-#### Environment variables
-
+Custom terraform binary or working directory:
 ```lua
 require('tfapply').setup({
-  terraform = {
-    env = {
-      AWS_PROFILE = 'dev',
-      AWS_REGION = 'us-west-2',
-    },
-  },
+  terraform = { bin = '/usr/local/bin/terraform', cwd = '/path/to/project' },
 })
 ```
+
+Disable interactive mode:
+```lua
+require('tfapply').setup({
+  interactive = { enabled = false },
+})
+```
+
+## Interactive Plan Review
+
+The plugin intercepts Terraform's approval prompt and presents a structured review interface.
+
+### Implementation
+
+- Terraform runs in a real terminal using `termopen()` for proper TTY support
+- A buffer monitor polls the terminal output for the approval prompt pattern
+- When detected, a review UI is created on top of the terminal window
+- The terminal job remains alive, maintaining the Terraform state lock
+- User input (`yes`/`no`) is sent via `chansend()` to the waiting Terraform process
+
+### Review UI Controls
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Navigate resources |
+| `Space` | Mark as reviewed |
+| `Enter` | Expand/collapse |
+| `A` | Approve and apply |
+| `R` / `q` | Reject and cancel |
+
+### Workflow
+
+1. Run `:TfApply` (or `:TfApplyHover` / `:TfApplyFile`)
+2. Terraform generates plan in terminal window
+3. Review UI appears at approval prompt
+4. Mark resources as reviewed, then approve or reject
+5. Terminal window returns showing apply progress
 
 ## Commands
 
@@ -136,26 +169,10 @@ require('tfapply').setup({
 | `:TfApplyFile` | Apply all resources in the current file (targeted apply) |
 | `:TfApplyClose` | Close the terraform terminal window |
 
+## Troubleshooting
 
-### Plugin not loading
-
-Run `:checkhealth tfapply` to diagnose issues.
-
-## Roadmap
-
-Future features being considered:
-
-- Visual selection mode to select multiple resources
-- Terraform plan support
-- Terraform destroy with targeting
-- Integration with terraform state commands
-- Resource dependency graph visualization
-- Support for terraform workspaces
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+Run `:checkhealth tfapply` to diagnose configuration issues.
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT
