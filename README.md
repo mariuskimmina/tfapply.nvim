@@ -3,7 +3,7 @@
 > [!WARNING]
 > Early development - not production ready
 
-A Neovim plugin for running Terraform apply commands with an interactive plan review interface.
+A Neovim plugin for running OpenTofu / Terraform apply commands with an interactive plan review interface.
 
 ## Demo
 
