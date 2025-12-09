@@ -171,6 +171,7 @@ The plugin intercepts Terraform's approval prompt and presents a structured revi
 | `:TfApply` | Apply terraform (full apply) |
 | `:TfApplyHover` | Apply the resource under cursor (targeted apply) |
 | `:TfApplyFile` | Apply all resources in the current file (targeted apply) |
+| `:TfInit` | Run terraform init |
 | `:TfApplyClose` | Close the terraform terminal window |
 
 ## Troubleshooting

@@ -374,9 +374,6 @@ local function run_apply_legacy(targets)
   vim.keymap.set('n', 'a', 'Ga', opts)
   vim.keymap.set('n', 'A', 'GA', opts)
 
-  -- Enable mouse support
-  vim.api.nvim_set_option_value('mouse', 'a', { win = winid })
-
   -- Add a helpful message at the top if configured
   if config.terminal.show_hints then
     vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, {
@@ -403,6 +400,116 @@ function M.run_apply(targets)
   else
     run_apply_legacy(targets)
   end
+end
+
+--- Build terraform init command
+--- @return string[] command
+local function build_terraform_init_command()
+  local config = require('tfapply.config')
+  local cmd = { config.terraform.bin, 'init' }
+  return cmd
+end
+
+--- Run terraform init in a floating terminal
+function M.run_init()
+  local config = require('tfapply.config')
+
+  -- Validate configuration
+  local valid, err = config.validate()
+  if not valid then
+    vim.notify('tfapply.nvim: ' .. err, vim.log.levels.ERROR)
+    return
+  end
+
+  -- Create floating window
+  local bufnr, winid = create_floating_window(
+    config.terminal.width,
+    config.terminal.height,
+    config.terminal.border
+  )
+
+  -- Build command
+  local cmd = build_terraform_init_command()
+  local cwd = get_working_directory()
+
+  -- Show command being executed
+  local cmd_str = table.concat(cmd, ' ')
+  vim.notify(string.format('Running: %s\nIn: %s', cmd_str, cwd), vim.log.levels.INFO)
+
+  -- Build job options
+  local job_opts = {
+    cwd = cwd,
+    on_exit = function(_, exit_code, _)
+      if exit_code == 0 then
+        vim.notify('Terraform init completed successfully', vim.log.levels.INFO)
+
+        -- Auto-close if configured
+        if config.terminal.auto_close then
+          vim.defer_fn(function()
+            if vim.api.nvim_win_is_valid(winid) then
+              vim.api.nvim_win_close(winid, true)
+            end
+          end, config.terminal.auto_close_delay)
+        end
+      else
+        vim.notify(
+          string.format('Terraform init failed with exit code %d', exit_code),
+          vim.log.levels.ERROR
+        )
+      end
+    end,
+  }
+
+  -- Add environment variables if configured
+  if config.terraform.env then
+    -- Merge with current environment
+    job_opts.env = vim.tbl_extend('force', vim.fn.environ(), config.terraform.env)
+  end
+
+  -- Start terminal job
+  local job_id = vim.fn.termopen(cmd, job_opts)
+
+  if job_id <= 0 then
+    vim.notify('Failed to start terraform process', vim.log.levels.ERROR)
+    return
+  end
+
+  -- Set up keymaps for better terminal experience
+  local opts = { buffer = bufnr, silent = true, noremap = true }
+
+  -- Normal mode: Close terminal with q or ESC
+  vim.keymap.set('n', 'q', function()
+    vim.api.nvim_win_close(winid, true)
+  end, opts)
+
+  vim.keymap.set('n', '<Esc>', function()
+    vim.api.nvim_win_close(winid, true)
+  end, opts)
+
+  -- Normal mode: Scrolling
+  vim.keymap.set('n', '<C-d>', '<C-d>zz', opts)
+  vim.keymap.set('n', '<C-u>', '<C-u>zz', opts)
+  vim.keymap.set('n', '<C-f>', '<C-f>zz', opts)
+  vim.keymap.set('n', '<C-b>', '<C-b>zz', opts)
+  vim.keymap.set('n', 'G', 'Gzb', opts)
+  vim.keymap.set('n', 'gg', 'ggzb', opts)
+
+  -- Terminal mode: Easy escape to normal mode for scrolling
+  vim.keymap.set('t', '<C-\\><C-n>', '<C-\\><C-n>', opts)
+  vim.keymap.set('t', '<C-n>', '<C-\\><C-n>', opts)
+
+  -- Terminal mode: Quick close
+  vim.keymap.set('t', '<C-q>', function()
+    vim.api.nvim_win_close(winid, true)
+  end, opts)
+
+  -- Normal mode: Jump to bottom and enter insert mode
+  vim.keymap.set('n', 'i', 'Gi', opts)
+  vim.keymap.set('n', 'a', 'Ga', opts)
+  vim.keymap.set('n', 'A', 'GA', opts)
+
+  -- Start in insert mode (terminal mode)
+  vim.cmd('startinsert')
 end
 
 return M

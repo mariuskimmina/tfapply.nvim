@@ -32,6 +32,12 @@ end, {
   desc = 'Apply all resources in the current file (targeted apply)',
 })
 
+vim.api.nvim_create_user_command('TfInit', function()
+  require('tfapply').init()
+end, {
+  desc = 'Run terraform init',
+})
+
 vim.api.nvim_create_user_command('TfApplyClose', function()
   require('tfapply').close_terminal()
 end, {
