@@ -5,6 +5,10 @@
 
 A Neovim plugin for running Terraform apply commands with an interactive plan review interface.
 
+## Demo
+
+![Demo](assets/demo.mp4)
+
 ## Features
 
 - Interactive plan review with approval workflow
