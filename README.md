@@ -7,7 +7,7 @@ A Neovim plugin for running Terraform apply commands with an interactive plan re
 
 ## Demo
 
-![Demo](assets/demo.mp4)
+https://github.com/user-attachments/assets/90e1b0da-63be-4117-aa23-f41625ad017a
 
 ## Features
 
