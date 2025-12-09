@@ -68,4 +68,10 @@ function M.apply_file()
   terminal.run_apply(targets)
 end
 
+--- Run terraform init
+function M.init()
+  local terminal = require('tfapply.terminal')
+  terminal.run_init()
+end
+
 return M

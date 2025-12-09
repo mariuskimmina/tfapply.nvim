@@ -46,6 +46,11 @@ function M.apply_file()
   require('tfapply.commands').apply_file()
 end
 
+--- Run terraform init
+function M.init()
+  require('tfapply.commands').init()
+end
+
 --- Close the terraform terminal window
 function M.close_terminal()
   require('tfapply.terminal').close()
